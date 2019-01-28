@@ -1,0 +1,38 @@
+{
+  "name": "ha-cache-manager",
+  "version": "1.0.0",
+  "description": "A cache manager that focus on availability of data.",
+  "main": "lib/cache.js",
+  "scripts": {
+    "test": "tap test/*.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gryphonmyers/ha-cache-manager.git"
+  },
+  "keywords": [
+    "nodejs",
+    "cache",
+    "cache-manager"
+  ],
+  "author": "Gryphon Myers",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/gryphonmyers/ha-cache-manager/issues"
+  },
+  "homepage": "https://github.com/gryphonmyers/ha-cache-manager#readme",
+  "dependencies": {
+    "deep-equal": "^1.0.1",
+    "defaults-es6": "^1.1.1",
+    "lru-cache": "^5.1.1",
+    "mkdirp-then": "^1.2.0",
+    "mz": "^2.7.0",
+    "redis": "^2.8.0"
+  },
+  "devDependencies": {
+    "mock-fs": "^4.7.0",
+    "mockdate": "^2.0.2",
+    "redis-mock": "^0.43.0",
+    "tap": "^12.4.0"
+  }
+}
