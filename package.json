@@ -27,7 +27,8 @@
     "lru-cache": "^5.1.1",
     "mkdirp-then": "^1.2.0",
     "mz": "^2.7.0",
-    "redis": "^2.8.0"
+    "redis": "^2.8.0",
+    "rimraf-then": "^1.0.1"
   },
   "devDependencies": {
     "mock-fs": "^4.7.0",

@@ -4,6 +4,7 @@ const redisMock = require('redis-mock');
 const tap = require('tap');
 const fs = require('mz/fs');
 const { promisify } = require('util');
+const rimraf = require('rimraf-then');
 
 const Cache = require('../');
 const FileStore = require('../lib/file-store');
@@ -212,18 +213,13 @@ tap.test('Test cache wrap', async test =>  {
 
 tap.test('Test file store', async test =>  {
     MockDate.set('2019-01-01T08:00');
-    mockFs({
-        'tmp': {}
-    });
+    mockFs();
 
     var cache = new Cache({
         ttl: 59,
         stores: [new FileStore]
     });
-
-    var items = await fs.readdir('tmp');
-
-    test.equals(items.length, 0);
+    await cache.load();
 
     await cache.set('foo', 'bar');
 
@@ -242,13 +238,29 @@ tap.test('Test file store', async test =>  {
     MockDate.reset();
 });
 
+tap.test('Test refresh with no initial values', async test =>  {
+    MockDate.set('2019-01-01T08:00');
+
+    var cache = new Cache({
+        ttl: 59,
+        stores: [new FileStore({isPrimary: true, path: 'tmp4'})]
+    });
+
+    await cache.load()
+
+    var val = await cache.wrap('foo', () => Promise.resolve('bar'))
+    
+    test.equals(val, 'bar');
+
+    await rimraf('tmp4');
+
+    MockDate.reset();
+});
+
 tap.test('Test multi / primary store with files', async test =>  {
     MockDate.set('2019-01-01T08:00');
 
-    mockFs({
-        'tmp': {},
-        'tmp2': {}
-    });
+    mockFs();
 
     var commonStore = new FileStore({path: 'tmp2', isPrimary: true})
 
@@ -259,6 +271,14 @@ tap.test('Test multi / primary store with files', async test =>  {
     var cache2 = new Cache({
         ttl: 59, stores: [new FileStore, commonStore]
     });
+
+    // var items = await fs.readdir('tmp');
+
+    // test.equals(items.length, 0);
+
+    // items = await fs.readdir('tmp2');
+
+    // test.equals(items.length, 0);
 
     await cache2.set('foo', 'bar');
 
