@@ -123,6 +123,67 @@ tap.test('Test cache ttl', async test =>  {
         MockDate.reset();
     })
 
+    test.test('Test set method ttl functionality', async test => {
+        var cache = new Cache({
+            ttl: 60
+        });
+    
+        await cache.load();
+    
+        MockDate.set('2019-01-01T08:00');
+    
+        await cache.set('foo', 'bar', 120);
+    
+        var val = await cache.get('foo');
+    
+        test.equals(val, 'bar');
+    
+        MockDate.set('2019-01-01T08:02');
+    
+        val = await cache.get('foo');
+    
+        test.equals(val, 'bar');
+    
+        MockDate.set('2019-01-01T08:03');
+    
+        val = await cache.get('foo');
+    
+        test.equals(val, undefined);
+
+        MockDate.reset();
+    })
+
+    test.test('Test wrap method ttl functionality', async test => {
+        var cache = new Cache({
+            ttl: 60
+        });
+    
+        await cache.load();
+    
+        MockDate.set('2019-01-01T08:00');
+    
+        await cache.wrap('foo', () => Promise.resolve('bar'), {ttl: 120});
+
+        var val = await cache.get('foo');
+    
+        test.equals(val, 'bar');
+    
+        MockDate.set('2019-01-01T08:02');
+        
+        await cache.wrapPromises.foo
+        val = await cache.get('foo');
+        
+        test.equals(val, 'bar');
+    
+        MockDate.set('2019-01-01T08:03');
+    
+        val = await cache.get('foo');
+    
+        test.equals(val, undefined);
+
+        MockDate.reset();
+    })
+
     test.test('Test cache ttl as function', async test =>  {
         var cache = new Cache({
             ttl: function(key, value) {
@@ -252,6 +313,7 @@ tap.test('Test refresh with no initial values', async test =>  {
     
     test.equals(val, 'bar');
 
+    await cache.dumpPromise
     await rimraf('tmp4');
 
     MockDate.reset();
