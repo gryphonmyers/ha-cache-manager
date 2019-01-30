@@ -290,13 +290,51 @@ tap.test('Test file store', async test =>  {
 
     test.equals(items.length, 2);
     
-    var fileContents = await fs.readFile('tmp/foo.json');
+    var fileContents = await fs.readFile('tmp/8c736521.json');
 
     test.deepEquals(JSON.parse(fileContents.toString('utf8')), {"k":"foo","v":"bar","e":1546358459000});
 
     mockFs.restore();
 
     MockDate.reset();
+});
+
+tap.test('Test set to file store with extremely long key', async test =>  {
+    const longKey = 'feed_nba-media_video_lang=enUS&locale=en-US&secret=null&date=null&filter%5Bpromoted%5D=true&filter%5B%24and%5D%5B0%5D%5Btags%5D%5B%24ne%5D=MyTeam&filter%5B%24and%5D%5B1%5D%5Btags%5D%5B%24ne%5D=Playgrounds&filter%5B%24and%5D%5B2%5D%5Btags%5D%5B%24ne%5D=2KTV&skip=0&limit=8&sort%5BpublishDate%5D=-1&flatten=true&token=70bd7b40f30df772747d598dfb898f&populate=20&simple=true__temp_meta';
+    var cache = new Cache({
+        ttl: 59,
+        stores: [new FileStore({path:'tmp5'})]
+    });
+    await cache.load();
+
+    await cache.set(longKey, 'bar');
+
+    await cache.dumpPromise;
+
+    items = await fs.readdir('tmp5');
+
+    test.equals(items.length, 2);
+    
+    await rimraf('tmp5');
+});
+
+tap.test('Test file store keys', async test =>  {
+    var cache = new Cache({
+        ttl: 59,
+        stores: [new FileStore({path:'tmp6'})]
+    });
+    await cache.load();
+
+    await cache.set('foo', 'bar');
+    await cache.set('plus', 'minus');
+
+    await cache.dumpPromise;
+
+    var keys = await cache.stores[0].keys();
+
+    test.deepEquals(keys, ['foo', 'plus']);
+    
+    await rimraf('tmp6');
 });
 
 tap.test('Test refresh with no initial values', async test =>  {
