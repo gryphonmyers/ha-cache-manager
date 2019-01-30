@@ -378,6 +378,8 @@ tap.test('Test redis store', async test =>  {
         stores: [redisStore]
     });
 
+    await cache.load();
+
     await cache.set('foo', 'bar');
 
     await cache.dumpPromise;
