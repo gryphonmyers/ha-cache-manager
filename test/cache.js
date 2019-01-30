@@ -395,6 +395,16 @@ tap.test('Test redis store', async test =>  {
     MockDate.reset();
 });
 
+tap.test('Test loading undefined values', async test =>  {
+    var cache = new Cache({
+        ttl: 59
+    });
+
+    test.ok(cache.load([{k: 'foo', v: undefined, e: Date.now() + 1000}]));
+});
+
+
+
 tap.test('Test multi / primary store with redis', async test =>  {
     MockDate.set('2019-01-01T08:00');
 
