@@ -278,7 +278,7 @@ tap.test('Test file store', async test =>  {
 
     var cache = new Cache({
         ttl: 59,
-        stores: [new FileStore]
+        store: new FileStore
     });
     await cache.load();
 
@@ -303,7 +303,7 @@ tap.test('Test set to file store with extremely long key', async test =>  {
     const longKey = 'feed_nba-media_video_lang=enUS&locale=en-US&secret=null&date=null&filter%5Bpromoted%5D=true&filter%5B%24and%5D%5B0%5D%5Btags%5D%5B%24ne%5D=MyTeam&filter%5B%24and%5D%5B1%5D%5Btags%5D%5B%24ne%5D=Playgrounds&filter%5B%24and%5D%5B2%5D%5Btags%5D%5B%24ne%5D=2KTV&skip=0&limit=8&sort%5BpublishDate%5D=-1&flatten=true&token=70bd7b40f30df772747d598dfb898f&populate=20&simple=true__temp_meta';
     var cache = new Cache({
         ttl: 59,
-        stores: [new FileStore({path:'tmp5'})]
+        store: new FileStore({path:'tmp5'})
     });
     await cache.load();
 
@@ -321,7 +321,7 @@ tap.test('Test set to file store with extremely long key', async test =>  {
 tap.test('Test file store keys', async test =>  {
     var cache = new Cache({
         ttl: 59,
-        stores: [new FileStore({path:'tmp6'})]
+        store: new FileStore({path:'tmp6'})
     });
     await cache.load();
 
@@ -331,6 +331,26 @@ tap.test('Test file store keys', async test =>  {
     await cache.dumpPromise;
 
     var keys = await cache.stores[0].keys();
+
+    test.deepEquals(keys, ['foo', 'plus']);
+    
+    await rimraf('tmp6');
+});
+
+
+tap.test('Test cache keys', async test =>  {
+    var cache = new Cache({
+        ttl: 59,
+        store: new FileStore({path:'tmp6'})
+    });
+    await cache.load();
+
+    await cache.set('foo', 'bar');
+    await cache.set('plus', 'minus');
+
+    await cache.dumpPromise;
+
+    var keys = await cache.keys();
 
     test.deepEquals(keys, ['foo', 'plus']);
     
@@ -365,11 +385,11 @@ tap.test('Test multi / primary store with files', async test =>  {
     var commonStore = new FileStore({path: 'tmp2', isPrimary: true})
 
     var cache = new Cache({
-        ttl: 59, stores: [commonStore]
+        ttl: 59, store: commonStore
     });
 
     var cache2 = new Cache({
-        ttl: 59, stores: [new FileStore, commonStore]
+        ttl: 59, store: commonStore, backupStores: [new FileStore]
     });
 
     // var items = await fs.readdir('tmp');
@@ -413,7 +433,7 @@ tap.test('Test redis store', async test =>  {
     var redisStore = new RedisStore({redisImplementation: redisMock});
     var cache = new Cache({
         ttl: 59,
-        stores: [redisStore]
+        store: redisStore
     });
 
     await cache.load();
@@ -449,12 +469,13 @@ tap.test('Test multi / primary store with redis', async test =>  {
     var commonStore = new RedisStore({redisImplementation: redisMock, isPrimary: true});
     var singleStore = new RedisStore({redisImplementation: redisMock});
     var cache = new Cache({
-        ttl: 59, stores: [commonStore]
+        ttl: 59, store: commonStore
     });
 
     var cache2 = new Cache({
         ttl: 59,
-        stores: [singleStore, commonStore]
+        store: commonStore,
+        backupStores: [singleStore]
     });
 
     await cache2.set('foo', 'bar');
