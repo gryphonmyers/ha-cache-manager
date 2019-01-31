@@ -299,6 +299,52 @@ tap.test('Test file store', async test =>  {
     MockDate.reset();
 });
 
+tap.test('Test multi write resolution', async test =>  {
+    MockDate.set('2019-01-01T08:00');
+    var cache = new Cache({
+        ttl: 59,
+        store: new FileStore
+    });
+    await cache.load();
+
+    cache.set('foo', 'bar');
+    cache.set('foo', 'bro');
+    cache.del('foo');
+    cache.set('foo', 'bru');    
+
+    var val = await cache.get('foo');
+
+    test.equals(val, 'bru');
+
+    await cache.dumpPromise;
+
+    items = await fs.readdir('tmp');
+    var val = await fs.readFile('tmp/8c736521.json');
+
+    test.deepEquals(JSON.parse(val), {"k":"foo","v":"bru","e":1546358459000});
+
+    MockDate.reset();
+});
+
+tap.test('Test cache del', async test =>  {
+    var cache = new Cache({
+        ttl: 59,
+        store: new FileStore
+    });
+
+    await cache.load();
+
+    await cache.set('foo', 'bar');
+
+    await cache.del('foo');
+
+    items = await fs.readdir('tmp');
+
+    test.deepEquals(items, [ '8c736521_meta.json' ]);
+    
+    await rimraf('tmp');
+});
+
 tap.test('Test set to file store with extremely long key', async test =>  {
     const longKey = 'feed_nba-media_video_lang=enUS&locale=en-US&secret=null&date=null&filter%5Bpromoted%5D=true&filter%5B%24and%5D%5B0%5D%5Btags%5D%5B%24ne%5D=MyTeam&filter%5B%24and%5D%5B1%5D%5Btags%5D%5B%24ne%5D=Playgrounds&filter%5B%24and%5D%5B2%5D%5Btags%5D%5B%24ne%5D=2KTV&skip=0&limit=8&sort%5BpublishDate%5D=-1&flatten=true&token=70bd7b40f30df772747d598dfb898f&populate=20&simple=true__temp_meta';
     var cache = new Cache({
