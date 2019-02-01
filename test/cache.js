@@ -10,6 +10,9 @@ const Cache = require('../');
 const FileStore = require('../lib/file-store');
 const RedisStore = require('../lib/redis-store');
 
+
+/* todo test for backupLru */
+
 tap.test('Test cache', async test =>  {
     var cache = new Cache({
     });
