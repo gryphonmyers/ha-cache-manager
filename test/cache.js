@@ -408,20 +408,24 @@ tap.test('Test cache keys', async test =>  {
 });
 
 tap.test('Test redis load with null values', async test =>  {
+    var redisStore = new RedisStore({redisImplementation: redisMock});
     var cache = new Cache({
         ttl: 59,
-        store: new RedisStore({redisImplementation: redisMock})
+        store: redisStore
     });
     await promisify(cache.store.client.set).bind(cache.store.client)('foo', 'null')
     await cache.load();
 
     test.ok(true)
+
+    redisStore.client.flushall()
 });
 
 tap.test('Test redis cleanup bad values', async test =>  {
+    var redisStore = new RedisStore({redisImplementation: redisMock});
     var cache = new Cache({
         ttl: 59,
-        store: new RedisStore({redisImplementation: redisMock})
+        store: redisStore
     });
     await promisify(cache.store.client.set).bind(cache.store.client)('foo', '{"foo": "bar"}')
     await promisify(cache.store.client.set).bind(cache.store.client)('boo_meta', '{"foo": "bar"}')
@@ -435,17 +439,22 @@ tap.test('Test redis cleanup bad values', async test =>  {
     var val = await promisify(cache.store.client.get).bind(cache.store.client)('foo');
 
     test.equals(val, null);
+
+    redisStore.client.flushall()
 });
 
 tap.test('Test redis values without bad values', async test =>  {
+    var redisStore = new RedisStore({redisImplementation: redisMock});
     var cache = new Cache({
         ttl: 59,
-        store: new RedisStore({redisImplementation: redisMock})
+        store: redisStore
     });
     await promisify(cache.store.client.set).bind(cache.store.client)('foo', '{"k": "bar", "v":"bar", "e": 10000}')
     await cache.load();
 
     await cache.dumpPromise;
+
+    redisStore.client.flushall()
 
 });
 
@@ -541,6 +550,7 @@ tap.test('Test redis store', async test =>  {
     var fileContents = await promisify(redisStore.client.get)('foo')
 
     test.deepEquals(JSON.parse(fileContents.toString('utf8')), {"k":"foo","v":"bar","e":1546358459000});
+    redisStore.client.flushall()
 
     MockDate.reset();
 });
@@ -591,6 +601,8 @@ tap.test('Test multi / primary store with redis', async test =>  {
     var items2 = await promisify(singleStore.client.keys)('*')
 
     test.deepEquals(items, items2, 'Both file stores have same files');
+    singleStore.client.flushall()
+    commonStore.client.flushall()
 
     MockDate.reset();
 });
@@ -615,7 +627,7 @@ tap.test('Test redis del', async test =>  {
     var val = await cache.get('foo');
 
     test.notOk(val);
-
+    redisStore.client.flushall()
     MockDate.reset();
 });
 
@@ -640,6 +652,29 @@ tap.test('Test keys globbing redis', async test =>  {
     var keys = await cache.keys('foo*');
 
     test.deepEquals(keys, ['foo', 'foo_34']);
+
+    redisStore.client.flushall();
+    MockDate.reset();
+});
+
+
+tap.test('Test purging already expired items from redis', async test =>  {
+    MockDate.set('2019-01-01T08:00');
+
+    var redisStore = new RedisStore({redisImplementation: redisMock});
+    var cache = new Cache({
+        ttl: 59,
+        store: redisStore
+    });
+
+    await promisify(redisStore.client.set)('foo', `{"k": "foo", "v": "barley", "e": ${new Date('2019-01-01T08:00').getTime() - 100} }`)
+
+    await cache.load();
+    await cache.del('foo', 'bar');
+
+    var val = await promisify(redisStore.client.get)('foo');
+    
+    test.notOk(val);
 
     MockDate.reset();
 });
