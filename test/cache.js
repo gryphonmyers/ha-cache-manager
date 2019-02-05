@@ -5,6 +5,7 @@ const tap = require('tap');
 const fs = require('mz/fs');
 const { promisify } = require('util');
 const rimraf = require('rimraf-then');
+const mkdirp = require('mkdirp-then');
 
 const Cache = require('../');
 const FileStore = require('../lib/file-store');
@@ -404,6 +405,36 @@ tap.test('Test cache keys', async test =>  {
     test.deepEquals(keys, ['foo', 'plus']);
     
     await rimraf('tmp6');
+});
+
+tap.test('Test redis load with null values', async test =>  {
+    var cache = new Cache({
+        ttl: 59,
+        store: new RedisStore({redisImplementation: redisMock})
+    });
+    await promisify(cache.store.client.set).bind(cache.store.client)('foo', 'null')
+    await cache.load();
+
+    test.ok(true)
+});
+
+tap.test('Test redis cleanup bad values', async test =>  {
+    var cache = new Cache({
+        ttl: 59,
+        store: new RedisStore({redisImplementation: redisMock})
+    });
+    await promisify(cache.store.client.set).bind(cache.store.client)('foo', '{"foo": "bar"}')
+    await promisify(cache.store.client.set).bind(cache.store.client)('boo_meta', '{"foo": "bar"}')
+    await cache.load();
+    var keys = await cache.keys();
+
+    await cache.dumpPromise;
+
+    test.deepEquals(keys, cache.lru.keys());
+
+    var val = await promisify(cache.store.client.get).bind(cache.store.client)('foo');
+
+    test.equals(val, null);
 });
 
 tap.test('Test refresh with no initial values', async test =>  {
