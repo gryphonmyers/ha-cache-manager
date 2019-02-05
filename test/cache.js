@@ -582,3 +582,52 @@ tap.test('Test multi / primary store with redis', async test =>  {
 
     MockDate.reset();
 });
+
+tap.test('Test redis del', async test =>  {
+    MockDate.set('2019-01-01T08:00');
+
+    var redisStore = new RedisStore({redisImplementation: redisMock});
+    var cache = new Cache({
+        ttl: 59,
+        store: redisStore
+    });
+
+    await cache.load();
+
+    await cache.set('foo', 'bar');
+
+    await cache.del('foo');
+
+    await cache.dumpPromise;
+
+    var val = await cache.get('foo');
+
+    test.notOk(val);
+
+    MockDate.reset();
+});
+
+
+
+tap.test('Test keys globbing redis', async test =>  {
+    MockDate.set('2019-01-01T08:00');
+
+    var redisStore = new RedisStore({redisImplementation: redisMock});
+    var cache = new Cache({
+        ttl: 59,
+        store: redisStore
+    });
+
+    await cache.load();
+    await cache.set('foo', 'bar');
+    await cache.set('foo_34', 'bar');
+    await cache.set('bar', 'foo');
+
+    await cache.dumpPromise;
+
+    var keys = await cache.keys('foo*');
+
+    test.deepEquals(keys, ['foo', 'foo_34']);
+
+    MockDate.reset();
+});
