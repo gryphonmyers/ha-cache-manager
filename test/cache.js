@@ -437,6 +437,18 @@ tap.test('Test redis cleanup bad values', async test =>  {
     test.equals(val, null);
 });
 
+tap.test('Test redis values without bad values', async test =>  {
+    var cache = new Cache({
+        ttl: 59,
+        store: new RedisStore({redisImplementation: redisMock})
+    });
+    await promisify(cache.store.client.set).bind(cache.store.client)('foo', '{"k": "bar", "v":"bar", "e": 10000}')
+    await cache.load();
+
+    await cache.dumpPromise;
+
+});
+
 tap.test('Test refresh with no initial values', async test =>  {
     MockDate.set('2019-01-01T08:00');
 
