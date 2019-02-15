@@ -25,6 +25,7 @@ tap.test('Test cache', async test =>  {
     });
 
     test.equals(val, 'bar');
+    cache.removeAllListeners();
 })
 
 tap.test('Test cache', async test =>  {
@@ -44,6 +45,7 @@ tap.test('Test cache', async test =>  {
     });
 
     test.equals(val, 'baz', 'Set cache has expected value');
+    cache.removeAllListeners();
 })
 
 tap.test('Test cache set', async test =>  {
@@ -64,6 +66,7 @@ tap.test('Test cache set', async test =>  {
     cache.set('foo', 'block');
 
     test.equals(val, 'brack', 'Cache set without awaiting promise returns old value.');
+    cache.removeAllListeners();
 })
 
 
@@ -95,6 +98,7 @@ tap.test('Test cache ttl', async test =>  {
         test.equals(val, 'bar', 'With undefined ttl, even a month later it still returns a set value.');
 
         MockDate.reset();
+        cache.removeAllListeners();
     })
 
     test.test('Test basic ttl functionality', async test => {
@@ -125,6 +129,7 @@ tap.test('Test cache ttl', async test =>  {
         test.equals(val, undefined);
 
         MockDate.reset();
+        cache.removeAllListeners();
     })
 
     test.test('Test set method ttl functionality', async test => {
@@ -155,6 +160,7 @@ tap.test('Test cache ttl', async test =>  {
         test.equals(val, undefined);
 
         MockDate.reset();
+        cache.removeAllListeners();
     })
 
     test.test('Test wrap method ttl functionality', async test => {
@@ -186,6 +192,7 @@ tap.test('Test cache ttl', async test =>  {
         test.equals(val, undefined);
 
         MockDate.reset();
+        cache.removeAllListeners();
     })
 
     test.test('Test cache ttl as function', async test =>  {
@@ -224,6 +231,7 @@ tap.test('Test cache ttl', async test =>  {
         test.equals(val, undefined, 'Alternate control flow yields a longer ttl.');
 
         MockDate.reset();
+        cache.removeAllListeners();
     })
 })
 
@@ -248,6 +256,7 @@ tap.test('Test cache wrap', async test =>  {
             test.equals(val, 'bag');
 
             MockDate.reset();
+            cache.removeAllListeners();
         }));
     })
 
@@ -272,6 +281,7 @@ tap.test('Test cache wrap', async test =>  {
             test.equals(val, 'bag');
 
             MockDate.reset();
+            cache.removeAllListeners();
         }));
     })
 })
@@ -301,21 +311,22 @@ tap.test('Test file store', async test =>  {
     mockFs.restore();
 
     MockDate.reset();
+    cache.removeAllListeners();
 });
 
 tap.test('Test multi write resolution', async test =>  {
     MockDate.set('2019-01-01T08:00');
+    await rimraf('tmp');
     var cache = new Cache({
         ttl: 59,
-        store: new FileStore
+        store: new FileStore({path: 'tmp'})
     });
     await cache.load();
-
     cache.set('foo', 'bar');
     cache.set('foo', 'bro');
     cache.del('foo');
-    cache.set('foo', 'bru');    
-
+    cache.set('foo', 'bru');
+    await cache.dumpPromise//TODO make this go away
     var val = await cache.get('foo');
 
     test.equals(val, 'bru');
@@ -328,6 +339,8 @@ tap.test('Test multi write resolution', async test =>  {
     test.deepEquals(JSON.parse(val), {"k":"foo","v":"bru","e":1546358459000});
 
     MockDate.reset();
+    await rimraf('tmp');
+    cache.removeAllListeners();
 });
 
 tap.test('Test cache del', async test =>  {
@@ -480,8 +493,8 @@ tap.test('Test refresh with no initial values', async test =>  {
 
 tap.test('Test multi / primary store with files', async test =>  {
     MockDate.set('2019-01-01T08:00');
-
-    mockFs();
+    await rimraf('tmp2');
+    await rimraf('tmp');
 
     var commonStore = new FileStore({path: 'tmp2', isPrimary: true})
 
@@ -490,7 +503,7 @@ tap.test('Test multi / primary store with files', async test =>  {
     });
 
     var cache2 = new Cache({
-        ttl: 59, store: commonStore, backupStores: [new FileStore]
+        ttl: 59, store: commonStore, backupStores: [new FileStore({path: 'tmp'})]
     });
 
     // var items = await fs.readdir('tmp');
@@ -523,7 +536,8 @@ tap.test('Test multi / primary store with files', async test =>  {
 
     test.deepEquals(items, items2, 'Both file stores have same files');
 
-    mockFs.restore();
+    await rimraf('tmp2');
+    await rimraf('tmp');
 
     MockDate.reset();
 });
@@ -676,5 +690,96 @@ tap.test('Test purging already expired items from redis', async test =>  {
     
     test.notOk(val);
 
+    MockDate.reset();
+});
+
+
+tap.test('Test multi / primary store with del operation on missing file', async test =>  {
+    MockDate.set('2019-01-01T08:00');
+    await rimraf('tmp2');
+    await rimraf('tmp');
+    var redisStore = new RedisStore({redisImplementation: redisMock});
+    // var redisStore2 = new RedisStore({redisImplementation: redisMock});
+
+    // var commonStore = new FileStore({path: 'tmp2', isPrimary: true})
+
+    var cache = new Cache({
+        ttl: 59, store: redisStore, backupStores: [new FileStore({path: 'tmp2'})]
+    });
+
+    var cache2 = new Cache({
+        ttl: 59, store: redisStore, backupStores: [new FileStore({path: 'tmp'})]
+    });
+
+    await cache.load();
+    await cache2.set('foo', 'bar');
+
+    await cache2.dumpPromise
+
+    var val = await cache.get('foo');
+
+    await rimraf('tmp');
+
+    await cache2.del('foo');
+
+    test.ok(true)
+
+    await rimraf('tmp2');
+    await rimraf('tmp');
+    redisStore.client.flushall()
+    MockDate.reset();
+});
+
+tap.test('Test del then get has refreshed data immediately', async test =>  {
+    MockDate.set('2019-01-01T08:00');
+    await rimraf('tmp2');
+    var redisStore = new RedisStore({redisImplementation: redisMock});
+
+    var cache = new Cache({
+        ttl: 59, store: redisStore, backupStores: [new FileStore({path: 'tmp2'})]
+    });
+
+    await cache.load();
+    await cache.set('foo', 'bar');
+
+    await cache.dumpPromise
+
+    await cache.del('foo');
+
+    var val = await cache.get('foo');
+
+    test.notOk(val)
+
+    await cache.set('foo', 'man');
+
+    val = await promisify(redisStore.client.get).bind(redisStore.client)('foo')
+
+    test.equals(val, '{"k":"foo","v":"man","e":1546358459000}')
+
+    await promisify(redisStore.client.del).bind(redisStore.client)('foo')
+
+    val = await cache.get('foo')
+
+    test.equals(val, null)
+
+    await cache.dumpPromise
+    await cache.refreshPromises.foo
+    
+    await promisify(redisStore.client.set).bind(redisStore.client)('foo', '{"k":"foo","v":"bash","e":1556358459000}')
+    await promisify(redisStore.client.set).bind(redisStore.client)('foo_meta', '{"setTime": 1556358459000, "key": "foo" }')
+
+    val = await cache.get('foo')
+    
+    test.same(val, null)
+
+    await cache.refreshPromises.foo
+
+    val = await cache.get('foo')
+
+    test.equals(val, 'bash')
+
+    await cache.dumpPromise
+    await rimraf('tmp2');
+    redisStore.client.flushall()
     MockDate.reset();
 });
