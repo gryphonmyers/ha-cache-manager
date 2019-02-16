@@ -783,3 +783,36 @@ tap.test('Test del then get has refreshed data immediately', async test =>  {
     redisStore.client.flushall()
     MockDate.reset();
 });
+
+
+
+tap.test('Del forces new value from wrap function', async test =>  {
+    MockDate.set('2019-01-01T08:00');
+    await rimraf('tmp2');
+    var redisStore = new RedisStore({redisImplementation: redisMock});
+
+    var cache = new Cache({
+        ttl: 59, store: redisStore, backupStores: [new FileStore({path: 'tmp2'})]
+    });
+
+    var val = await cache.wrap('bang', () => {
+        return Promise.resolve('window');
+    }, {ttl: 60 });
+
+    test.same(val, 'window')
+
+    await cache.del('bang');
+
+    val = await cache.wrap('bang', () => {
+        return Promise.resolve('windows');
+    }, { ttl: 60 });
+
+    test.same(val, 'windows');
+
+    await cache.dumpPromise
+    await rimraf('tmp2');
+    redisStore.client.flushall()
+    MockDate.reset();
+});
+
+
