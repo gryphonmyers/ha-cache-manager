@@ -324,8 +324,8 @@ tap.test('Test multi write resolution', async test =>  {
     await cache.load();
     cache.set('foo', 'bar');
     cache.set('foo', 'bro');
-    cache.del('foo');
-    cache.set('foo', 'bru');
+    await cache.del('foo');
+    await cache.set('foo', 'bru');
     await cache.dumpPromise//TODO make this go away
     var val = await cache.get('foo');
 
@@ -521,7 +521,7 @@ tap.test('Test multi / primary store with files', async test =>  {
     var val = await cache.get('foo');
     /* todo test when we have returnStaleWhileRefreshing false */
     /* todo test when not isprimary */
-    test.equals(val, undefined);
+    test.same(val, null);
 
     await cache.refreshPromises.foo
 
@@ -760,7 +760,7 @@ tap.test('Test del then get has refreshed data immediately', async test =>  {
 
     val = await cache.get('foo')
 
-    test.equals(val, null)
+    test.same(val, null)
 
     await cache.dumpPromise
     await cache.refreshPromises.foo
@@ -870,7 +870,7 @@ tap.test('Del forces wrap to refresh in distributed environment', async test => 
         ttl: 59, store: redisStore, backupStores: [new FileStore({path: 'tmp'})]
     });
 
-    var val = await cache.wrap('bang', () => {
+    var val = await cache.wrap('bang_blah', () => {
         if (alternate) {
             return Promise.resolve('broken window');
         }
@@ -881,9 +881,11 @@ tap.test('Del forces wrap to refresh in distributed environment', async test => 
 
     await cache.dumpPromise;
     alternate = true;
-    await cache.del('bang');
+    var keys = await cache2.keys('bang_*');
+    test.deepEquals(['bang_blah'], keys)
+    await Promise.all(keys.map(key => cache2.del(key)));
 
-    var val2 = await cache2.wrap('bang', () => {
+    var val2 = await cache2.wrap('bang_blah', () => {
         if (alternate) {
             return Promise.resolve('broken window');
         }
