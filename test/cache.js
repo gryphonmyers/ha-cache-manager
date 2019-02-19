@@ -784,8 +784,6 @@ tap.test('Test del then get has refreshed data immediately', async test =>  {
     MockDate.reset();
 });
 
-
-
 tap.test('Del forces new value from wrap function', async test =>  {
     MockDate.set('2019-01-01T08:00');
     await rimraf('tmp2');
@@ -811,6 +809,92 @@ tap.test('Del forces new value from wrap function', async test =>  {
 
     await cache.dumpPromise
     await rimraf('tmp2');
+    redisStore.client.flushall()
+    MockDate.reset();
+});
+
+tap.test('Wrap pulls in new value from remote in distributed environment', async test =>  {
+    MockDate.set('2019-01-01T08:00');
+    await rimraf('tmp2');
+    await rimraf('tmp');
+    var alternate = false;
+    var redisStore = new RedisStore({redisImplementation: redisMock});
+
+    var cache = new Cache({
+        ttl: 59, store: redisStore, backupStores: [new FileStore({path: 'tmp2'})]
+    });
+
+    var cache2 = new Cache({
+        ttl: 59, store: redisStore, backupStores: [new FileStore({path: 'tmp'})]
+    });
+
+    var val = await cache.wrap('bang', () => {
+        if (alternate) {
+            return Promise.resolve('broken window');
+        }
+        return Promise.resolve('window');
+    }, {ttl: 60 });
+
+    test.same(val, 'window');
+
+    await cache.dumpPromise;
+    alternate = true;
+    var val2 = await cache2.wrap('bang', () => {
+        if (alternate) {
+            return Promise.resolve('broken window');
+        }
+        return Promise.resolve('window');
+    }, {ttl: 60 });
+
+    test.same(val2, 'window');
+
+    await cache.dumpPromise
+    await rimraf('tmp2');
+    await rimraf('tmp');
+    redisStore.client.flushall()
+    MockDate.reset();
+});
+
+tap.test('Del forces wrap to refresh in distributed environment', async test =>  {
+    MockDate.set('2019-01-01T08:00');
+    await rimraf('tmp2');
+    await rimraf('tmp');
+    var alternate = false;
+    var redisStore = new RedisStore({redisImplementation: redisMock});
+
+    var cache = new Cache({
+        ttl: 59, store: redisStore, backupStores: [new FileStore({path: 'tmp2'})]
+    });
+
+    var cache2 = new Cache({
+        ttl: 59, store: redisStore, backupStores: [new FileStore({path: 'tmp'})]
+    });
+
+    var val = await cache.wrap('bang', () => {
+        if (alternate) {
+            return Promise.resolve('broken window');
+        }
+        return Promise.resolve('window');
+    }, {ttl: 60 });
+
+    test.same(val, 'window');
+
+    await cache.dumpPromise;
+    alternate = true;
+    await cache.del('bang');
+
+    var val2 = await cache2.wrap('bang', () => {
+        if (alternate) {
+            return Promise.resolve('broken window');
+        }
+        return Promise.resolve('window');
+    }, {ttl: 60 });
+
+    test.same(val2, 'broken window');
+
+    await cache.dumpPromise
+    await rimraf('tmp2');
+    await rimraf('tmp');
     redisStore.client.flushall()
     MockDate.reset();
 });
