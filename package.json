@@ -1,6 +1,6 @@
 {
   "name": "ha-cache-manager",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "description": "A cache manager that focus on availability of data.",
   "main": "lib/cache.js",
   "scripts": {
