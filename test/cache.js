@@ -901,4 +901,56 @@ tap.test('Del forces wrap to refresh in distributed environment', async test => 
     MockDate.reset();
 });
 
+tap.test('Deleting multiple keys works with redis store', async test =>  {
+    MockDate.set('2019-01-01T08:00');
+    await rimraf('tmp2');
+    await rimraf('tmp');
+    
+    var redisStore = new RedisStore({redisImplementation: redisMock});
+
+    var cache = new Cache({
+        ttl: 59, store: redisStore, backupStores: [new FileStore({path: 'tmp2'})]
+    });
+
+    var cache2 = new Cache({
+        ttl: 59, store: redisStore, backupStores: [new FileStore({path: 'tmp'})]
+    });
+
+    await cache.set('hi', 'boo')
+    await cache.wrap('hi2', () => 'boo2')
+    await cache.set('hi3', 'boo3')
+
+    await cache.dumpPromise
+
+    await cache.get('hi')
+    await cache.get('hi2')
+    await cache.get('hi3')
+
+    await cache.dumpPromise
+    await cache.refreshPromises.hi2
+
+    MockDate.set('2019-01-01T08:10');
+
+    await cache2.set('hi', 'booo')
+    await cache2.set('hi3', 'booo3')
+    await cache2.wrap('hi2', () => 'booo2')
+
+    await cache2.get('hi')
+    await cache2.get('hi2')
+    await cache2.get('hi3')
+
+    await cache2.dumpPromise
+    await cache2.refreshPromises.hi2
+    
+    var keys = await cache.keys('hi*')
+
+    await cache.del(keys)
+
+    await cache.dumpPromise
+    await rimraf('tmp2');
+    await rimraf('tmp');
+    redisStore.client.flushall()
+    MockDate.reset();
+});
+
 
