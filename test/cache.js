@@ -521,7 +521,7 @@ tap.test('Test multi / primary store with files', async test =>  {
     var val = await cache.get('foo');
     /* todo test when we have returnStaleWhileRefreshing false */
     /* todo test when not isprimary */
-    test.same(val, null);
+    test.same(val, 'bar');
 
     await cache.refreshPromises.foo
 
@@ -601,7 +601,7 @@ tap.test('Test multi / primary store with redis', async test =>  {
     var val = await cache.get('foo');
     /* todo test when we have returnStaleWhileRefreshing false */
     /* todo test when not isprimary */
-    test.equals(val, undefined);
+    test.equals(val, 'bar');
 
     await cache.refreshPromises.foo
 
@@ -770,7 +770,7 @@ tap.test('Test del then get has refreshed data immediately', async test =>  {
 
     val = await cache.get('foo')
     
-    test.same(val, null)
+    test.same(val, 'bash')
 
     await cache.refreshPromises.foo
 
@@ -827,24 +827,21 @@ tap.test('Wrap pulls in new value from remote in distributed environment', async
     var cache2 = new Cache({
         ttl: 59, store: redisStore, backupStores: [new FileStore({path: 'tmp'})]
     });
-
-    var val = await cache.wrap('bang', () => {
+    var fetchFunc = () => {
         if (alternate) {
             return Promise.resolve('broken window');
         }
         return Promise.resolve('window');
-    }, {ttl: 60 });
+    };
+
+    var val = await cache.wrap('bang', fetchFunc, {ttl: 60 });
 
     test.same(val, 'window');
 
     await cache.dumpPromise;
     alternate = true;
-    var val2 = await cache2.wrap('bang', () => {
-        if (alternate) {
-            return Promise.resolve('broken window');
-        }
-        return Promise.resolve('window');
-    }, {ttl: 60 });
+    
+    var val2 = await cache2.wrap('bang', fetchFunc, {ttl: 60 });
 
     test.same(val2, 'window');
 
@@ -869,13 +866,14 @@ tap.test('Del forces wrap to refresh in distributed environment', async test => 
     var cache2 = new Cache({
         ttl: 59, store: redisStore, backupStores: [new FileStore({path: 'tmp'})]
     });
-
-    var val = await cache.wrap('bang_blah', () => {
+    var fetchFunc = () => {
         if (alternate) {
             return Promise.resolve('broken window');
         }
         return Promise.resolve('window');
-    }, {ttl: 60 });
+    };
+
+    var val = await cache.wrap('bang_blah', fetchFunc, {ttl: 60 });
 
     test.same(val, 'window');
 
@@ -883,15 +881,68 @@ tap.test('Del forces wrap to refresh in distributed environment', async test => 
     alternate = true;
     var keys = await cache2.keys('bang_*');
     test.deepEquals(['bang_blah'], keys)
-    await Promise.all(keys.map(key => cache2.del(key)));
+    await cache2.del(keys)
+    // await Promise.all(keys.map(key => cache2.del(key)));
 
-    var val2 = await cache2.wrap('bang_blah', () => {
+    var val2 = await cache2.wrap('bang_blah', fetchFunc, {ttl: 60 });
+
+    test.same(val2, 'broken window');
+
+    await cache.dumpPromise
+    await rimraf('tmp2');
+    await rimraf('tmp');
+    redisStore.client.flushall()
+    MockDate.reset();
+});
+
+
+tap.test('Del forces wrap to refresh in distributed environment, even with fallback value', async test =>  {
+    MockDate.set('2019-01-01T08:00');
+    await rimraf('tmp2');
+    await rimraf('tmp');
+
+    var alternate = false;
+    var redisStore = new RedisStore({redisImplementation: redisMock});
+
+    var cache = new Cache({
+        ttl: 59, store: redisStore, backupStores: [new FileStore({path: 'tmp2'})]
+    });
+
+    var cache2 = new Cache({
+        ttl: 59, store: redisStore, backupStores: [new FileStore({path: 'tmp'})]
+    });
+
+    var fetchFunc = () => {
         if (alternate) {
             return Promise.resolve('broken window');
         }
         return Promise.resolve('window');
-    }, {ttl: 60 });
+    }
 
+    var val = await cache.wrap('bang_blah', fetchFunc, {ttl: 60 });
+    var val2 = await cache2.wrap('bang_blah', fetchFunc, {ttl: 60 });
+    await cache.dumpPromise;
+    await cache2.dumpPromise;
+    test.same(val, 'window');
+    test.same(val, val2);
+
+    MockDate.set('2019-01-01T08:02');
+
+    val2 = await cache2.wrap('bang_blah', fetchFunc, {ttl: 60 });
+    val = await cache.wrap('bang_blah', fetchFunc, {ttl: 60 });
+    await cache.dumpPromise;
+    await cache2.dumpPromise;
+    
+    alternate = true;
+    var keys = await cache2.keys('bang_*');
+
+    test.deepEquals(['bang_blah'], keys)
+    await cache2.del(keys);
+
+    val2 = await cache2.wrap('bang_blah', fetchFunc, {ttl: 60 });
+    val = await cache.wrap('bang_blah', fetchFunc, {ttl: 60 });
+
+    test.same(val, 'broken window');
     test.same(val2, 'broken window');
 
     await cache.dumpPromise
